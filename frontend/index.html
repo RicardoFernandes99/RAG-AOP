@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en" class="h-full bg-zinc-900">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AccountantGPT</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: {
+                            sans: ["Aptos", "Segoe UI", "sans-serif"],
+                        },
+                        colors: {
+                            shell: "#212121",
+                            sidebar: "#171717",
+                            panel: "#2b2b2b",
+                            panelSoft: "#343434",
+                            panelHover: "#3a3a3a",
+                        },
+                        boxShadow: {
+                            composer: "0 24px 60px rgba(0, 0, 0, 0.28)",
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            .chat-scroll {
+                scrollbar-width: thin;
+                scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+            }
+
+            .chat-scroll::-webkit-scrollbar {
+                width: 10px;
+            }
+
+            .chat-scroll::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .chat-scroll::-webkit-scrollbar-thumb {
+                border: 2px solid transparent;
+                border-radius: 9999px;
+                background: rgba(255, 255, 255, 0.22);
+                background-clip: padding-box;
+            }
+
+            .chat-scroll::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.34);
+                background-clip: padding-box;
+            }
+
+            .markdown-body p,
+            .markdown-body ul,
+            .markdown-body ol,
+            .markdown-body pre,
+            .markdown-body blockquote,
+            .markdown-body h1,
+            .markdown-body h2,
+            .markdown-body h3 {
+                margin: 0 0 1rem 0;
+            }
+
+            .markdown-body p:last-child,
+            .markdown-body ul:last-child,
+            .markdown-body ol:last-child,
+            .markdown-body pre:last-child,
+            .markdown-body blockquote:last-child,
+            .markdown-body h1:last-child,
+            .markdown-body h2:last-child,
+            .markdown-body h3:last-child {
+                margin-bottom: 0;
+            }
+
+            .markdown-body h1 {
+                font-size: 1.5rem;
+                font-weight: 700;
+            }
+
+            .markdown-body h2 {
+                font-size: 1.25rem;
+                font-weight: 700;
+            }
+
+            .markdown-body h3 {
+                font-size: 1.125rem;
+                font-weight: 600;
+            }
+
+            .markdown-body ul,
+            .markdown-body ol {
+                padding-left: 1.25rem;
+            }
+
+            .markdown-body code {
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 0.5rem;
+                background: rgba(255, 255, 255, 0.06);
+                padding: 0.15rem 0.4rem;
+                font-family: Consolas, "Courier New", monospace;
+                font-size: 0.92em;
+            }
+
+            .markdown-body pre {
+                overflow-x: auto;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 1rem;
+                background: #1b1b1f;
+                padding: 1rem;
+            }
+
+            .markdown-body pre code {
+                border: 0;
+                background: transparent;
+                padding: 0;
+                font-size: 0.95em;
+                line-height: 1.65;
+            }
+
+            .markdown-body blockquote {
+                border-left: 3px solid rgba(125, 211, 252, 0.5);
+                padding-left: 1rem;
+                color: #d4d4d8;
+            }
+
+            .markdown-body a {
+                color: #7dd3fc;
+                text-decoration: underline;
+            }
+
+            .persona-backdrop {
+                background: radial-gradient(circle at center, rgba(255, 255, 255, 0.04), transparent 60%);
+            }
+
+            .persona-panel {
+                transform: translateY(-4vh);
+            }
+        </style>
+    </head>
+    <body
+        class="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.03),transparent_28%),linear-gradient(180deg,#242424_0%,#212121_100%)] font-sans text-zinc-100"
+    >
+        <section
+            id="auth-screen"
+            class="flex min-h-screen items-center justify-center px-4 py-10"
+        >
+            <div
+                class="w-full max-w-md rounded-[28px] border border-white/10 bg-panel/95 p-6 shadow-composer backdrop-blur"
+            >
+                <div class="mb-8">
+                    <span
+                        class="text-[0.74rem] uppercase tracking-[0.08em] text-zinc-500"
+                        >RAG AOP</span
+                    >
+                    <h1 class="mt-2 text-3xl font-semibold text-zinc-100">
+                        AccountantGPT
+                    </h1>
+                    <p class="mt-3 text-sm leading-6 text-zinc-400">
+                        Create an account or sign in to keep your session and
+                        conversation history.
+                    </p>
+                </div>
+
+                <div
+                    id="auth-mode-toggle"
+                    class="mb-5 flex gap-2 rounded-2xl bg-shell p-1"
+                >
+                    <button
+                        id="login-mode-button"
+                        type="button"
+                        data-auth-mode="login"
+                        aria-pressed="true"
+                        class="relative z-10 flex-1 cursor-pointer rounded-[14px] bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 transition pointer-events-auto"
+                    >
+                        Login
+                    </button>
+                    <button
+                        id="register-mode-button"
+                        type="button"
+                        data-auth-mode="register"
+                        aria-pressed="false"
+                        class="relative z-10 flex-1 cursor-pointer rounded-[14px] px-3 py-2 text-sm font-medium text-zinc-300 transition pointer-events-auto"
+                    >
+                        Create account
+                    </button>
+                </div>
+
+                <form id="auth-form" class="space-y-4">
+                    <label class="block">
+                        <span class="mb-2 block text-sm text-zinc-300"
+                            >Username</span
+                        >
+                        <input
+                            id="auth-username"
+                            type="text"
+                            required
+                            class="w-full rounded-2xl border border-white/10 bg-shell px-4 py-3 text-zinc-100 outline-none placeholder:text-zinc-500"
+                            placeholder="ricardo"
+                        />
+                    </label>
+                    <label class="block">
+                        <span class="mb-2 block text-sm text-zinc-300"
+                            >Password</span
+                        >
+                        <input
+                            id="auth-password"
+                            type="password"
+                            required
+                            class="w-full rounded-2xl border border-white/10 bg-shell px-4 py-3 text-zinc-100 outline-none placeholder:text-zinc-500"
+                            placeholder="password"
+                        />
+                    </label>
+
+                    <p
+                        id="auth-status"
+                        class="min-h-6 text-sm text-rose-300"
+                        role="status"
+                    ></p>
+
+                    <button
+                        id="auth-submit"
+                        type="submit"
+                        class="w-full rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:opacity-90"
+                    >
+                        Sign in
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <main
+            id="app-shell"
+            class="hidden h-screen overflow-hidden grid-cols-1 md:grid md:grid-cols-[260px_minmax(0,1fr)]"
+        >
+            <aside
+                class="hidden h-screen overflow-hidden border-r border-white/10 bg-sidebar p-3 md:flex md:flex-col md:justify-between"
+            >
+                <div class="flex min-h-0 flex-col gap-3.5">
+                    <div class="flex items-center gap-3 px-1.5 py-2.5">
+                        <div
+                            class="grid h-8 w-8 place-items-center rounded-[10px] bg-zinc-100 text-[0.8rem] font-bold text-zinc-950"
+                        >
+                            AO
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <span
+                                class="text-[0.74rem] uppercase tracking-[0.08em] text-zinc-500"
+                                >RAG AOP</span
+                            >
+                            <strong class="text-sm font-semibold text-zinc-100"
+                                >AccountantGPT</strong
+                            >
+                        </div>
+                    </div>
+
+                    <button
+                        id="new-chat-button"
+                        class="flex w-full items-center gap-2.5 rounded-[14px] bg-panel px-3.5 py-3 text-left text-sm text-zinc-100 transition hover:bg-panelHover"
+                        type="button"
+                    >
+                        <span class="text-xl leading-none">+</span>
+                        <span>New chat</span>
+                    </button>
+
+                    <section class="flex min-h-0 flex-col gap-2.5">
+                        <p
+                            class="text-[0.74rem] uppercase tracking-[0.08em] text-zinc-500"
+                        >
+                            Chat history
+                        </p>
+                        <div
+                            id="chat-history"
+                            class="flex flex-col gap-1.5 overflow-y-auto pr-1"
+                            aria-live="polite"
+                        >
+                            <button
+                                class="history-item rounded-xl px-3 py-2.5 text-left text-sm text-zinc-100 bg-panelSoft"
+                                type="button"
+                            >
+                                New conversation
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                <div
+                    class="flex items-center gap-3 border-t border-white/10 px-2 py-3"
+                >
+                    <div
+                        id="user-avatar"
+                        class="grid h-[34px] w-[34px] place-items-center overflow-hidden rounded-full bg-zinc-500"
+                    >
+                        <img
+                            src="/static/images/user-avatar.svg"
+                            alt="User avatar"
+                            class="h-full w-full object-cover"
+                        />
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <strong
+                            id="user-name"
+                            class="text-sm font-semibold text-zinc-100"
+                            >User</strong
+                        >
+                        <button
+                            id="logout-button"
+                            type="button"
+                            class="text-left text-[0.86rem] text-zinc-500 transition hover:text-zinc-300"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <section
+                class="grid h-screen min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden pl-3 pr-0 pb-4 pt-2 md:pl-5 md:pr-0 md:pb-[18px] md:pt-3"
+            >
+                <header class="flex min-h-12 items-center px-1.5 md:px-2.5">
+                    <div>
+                        <span
+                            id="assistant-label"
+                            class="text-[0.74rem] uppercase tracking-[0.08em] text-zinc-500"
+                            >Assistant</span
+                        >
+                        <h1
+                            id="assistant-title"
+                            class="mt-1 text-2xl font-semibold text-zinc-100"
+                        >
+                            AccountantGPT
+                        </h1>
+                    </div>
+                </header>
+
+                <section class="row-start-2 min-h-0 overflow-hidden">
+                    <div class="flex h-full w-full min-h-0 flex-col">
+                        <div
+                            id="chat-window"
+                            class="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+                        >
+                            <section
+                                id="empty-state"
+                                class="mx-auto flex w-full max-w-[560px] flex-1 items-center justify-center px-4 pb-40 text-center"
+                            >
+                                <div class="flex w-full flex-col items-center gap-2.5">
+                                    <p
+                                        id="empty-state-kicker"
+                                        class="text-[0.74rem] uppercase tracking-[0.08em] text-zinc-500"
+                                    >
+                                        Grounded answers from your indexed PDFs
+                                    </p>
+                                    <h2
+                                        id="empty-state-title"
+                                        class="text-4xl font-medium tracking-tight text-zinc-100 md:text-5xl"
+                                    >
+                                        Whenever you need it.
+                                    </h2>
+                                    <p
+                                        id="empty-state-description"
+                                        class="max-w-xl text-base leading-7 text-zinc-400"
+                                    >
+                                        Ask about accounting rules, classifications, and
+                                        references from the uploaded document set.
+                                    </p>
+                                </div>
+                            </section>
+
+                            <div
+                                id="messages-scroll"
+                                class="chat-scroll hidden h-full min-h-0 flex-1 overflow-y-auto"
+                            >
+                                <div
+                                    id="messages"
+                                    class="mx-auto flex w-full max-w-[900px] min-h-full flex-col gap-6 px-2 pr-8 pb-44 pt-6"
+                                    aria-live="polite"
+                                ></div>
+                            </div>
+
+                            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#212121] via-[#212121]/92 to-transparent"></div>
+
+                            <form
+                                id="chat-form"
+                                class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-4 pb-3 pt-12 md:px-0"
+                            >
+                                <div
+                                    class="pointer-events-auto w-full max-w-[760px] rounded-[30px] border border-white/10 bg-[#303030]/96 px-5 pb-4 pt-[18px] shadow-composer backdrop-blur"
+                                >
+                                    <textarea
+                                        id="question"
+                                        name="question"
+                                        rows="1"
+                                        placeholder="Ask anything"
+                                        required
+                                        class="max-h-[220px] min-h-8 w-full resize-none border-0 bg-transparent p-0 text-base text-zinc-100 outline-none placeholder:text-zinc-500"
+                                    ></textarea>
+                                    <div class="mt-3.5 flex items-center justify-between gap-3.5">
+                                        <button
+                                            id="persona-toggle"
+                                            type="button"
+                                            aria-pressed="true"
+                                            class="inline-flex items-center gap-2 rounded-full bg-sky-400/10 px-3 py-1.5 text-[0.8rem] font-medium text-sky-300 transition hover:bg-sky-400/15"
+                                        >
+                                            Accountant Assistant
+                                        </button>
+                                        <p
+                                            id="status"
+                                            class="m-0 text-sm text-zinc-500"
+                                            role="status"
+                                        ></p>
+                                        <button
+                                            id="send-button"
+                                            class="grid h-10 w-10 place-items-center rounded-full bg-white text-base font-bold text-zinc-950 transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
+                                            type="submit"
+                                            aria-label="Send message"
+                                        >
+                                            <span class="leading-none">^</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <div
+                                id="persona-menu"
+                                class="persona-backdrop pointer-events-none absolute inset-0 z-20 hidden items-center justify-center px-4 py-10"
+                            >
+                                <div class="persona-panel pointer-events-auto grid w-full max-w-[980px] gap-6 md:grid-cols-2">
+                                    <button
+                                        id="accountant-persona-option"
+                                        type="button"
+                                        class="persona-option flex min-h-[420px] flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[#232323]/92 text-left transition"
+                                        data-persona="accountant"
+                                    >
+                                        <div class="flex flex-1 items-center justify-center overflow-hidden bg-[#1f1f1f] p-6">
+                                            <img
+                                                src="/static/images/personas/accountant.png"
+                                                alt="Accountant persona preview"
+                                                class="h-[90%] w-[90%] object-contain object-center"
+                                            />
+                                        </div>
+                                        <div class="border-t border-white/10 bg-[#2b2b2b] px-6 py-5 text-center">
+                                            <p class="text-2xl font-semibold text-zinc-100">Accountant Assistant</p>
+                                        </div>
+                                    </button>
+                                    <button
+                                        id="ai-persona-option"
+                                        type="button"
+                                        class="persona-option flex min-h-[420px] flex-col overflow-hidden rounded-[26px] border border-white/10 bg-[#232323]/92 text-left transition"
+                                        data-persona="ai"
+                                    >
+                                        <div class="flex flex-1 items-center justify-center overflow-hidden bg-[#1f1f1f] p-6">
+                                            <img
+                                                src="/static/images/personas/ai.png"
+                                                alt="AI persona preview"
+                                                class="h-[90%] w-[90%] object-contain object-center"
+                                            />
+                                        </div>
+                                        <div class="border-t border-white/10 bg-[#2b2b2b] px-6 py-5 text-center">
+                                            <p class="text-2xl font-semibold text-zinc-100">AI Assistant</p>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+        </main>
+
+        <template id="message-template">
+            <article
+                class="message grid grid-cols-[42px_minmax(0,1fr)] gap-3.5"
+            >
+                <div
+                    class="message-avatar grid h-[34px] w-[34px] place-items-center rounded-xl bg-zinc-200 text-[0.8rem] font-bold text-zinc-950"
+                ></div>
+                <div class="message-content min-w-0 pt-0.5">
+                    <div
+                        class="message-meta mb-2.5 text-[0.74rem] uppercase tracking-[0.08em] text-zinc-500"
+                    ></div>
+                    <div
+                        class="message-body whitespace-pre-wrap text-[15px] leading-7 text-zinc-100"
+                    ></div>
+                </div>
+            </article>
+        </template>
+
+        <script src="/static/app.js" defer></script>
+    </body>
+</html>

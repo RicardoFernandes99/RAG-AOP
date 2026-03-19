@@ -4,3 +4,7 @@ langchain-text-splitters
 langchain-ollama
 langchain-chroma
 pypdf
+fastapi
+uvicorn
+pytest
+httpx

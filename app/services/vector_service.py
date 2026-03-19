@@ -6,9 +6,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
-PDF_DIRECTORY = Path("Data")
-DB_LOCATION = Path("chroma_langchain_db")
-EMBED_MODEL = "mxbai-embed-large"
+from app.core.config import CHROMA_DB_LOCATION, OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL, PDF_DIRECTORY
 
 
 def load_pdf_documents(pdf_directory: Path) -> list[Document]:
@@ -35,15 +33,18 @@ def load_pdf_documents(pdf_directory: Path) -> list[Document]:
 
 
 def build_vector_store() -> Chroma:
-    embeddings = OllamaEmbeddings(model=EMBED_MODEL)
+    embeddings = OllamaEmbeddings(
+        model=OLLAMA_EMBED_MODEL,
+        base_url=OLLAMA_BASE_URL,
+    )
     vector_store = Chroma(
         collection_name="pdf_collection",
         embedding_function=embeddings,
-        persist_directory=str(DB_LOCATION),
+        persist_directory=str(CHROMA_DB_LOCATION),
     )
 
     collection_count = vector_store._collection.count()
-    if DB_LOCATION.exists() and collection_count > 0:
+    if CHROMA_DB_LOCATION.exists() and collection_count > 0:
         return vector_store
 
     if not PDF_DIRECTORY.exists():
